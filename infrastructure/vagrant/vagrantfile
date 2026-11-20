@@ -13,8 +13,6 @@ LAN_NET  = "10.10.10"
 LAN_NAME = "lan-infra"
 DOMAIN   = "projet.lan"
 
-
-
 # Ajustez la RAM selon votre machine hôte
 VMS = [
   { name: "vm-dns",     id: 10, ram: 512,  cpus: 1 },
