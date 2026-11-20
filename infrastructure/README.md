@@ -28,3 +28,13 @@ infrastructure/
 - Configurer les ressources et les réseaux virtuels.
 - Automatiser le déploiement de l'environnement local.
 - Préparer une éventuelle migration vers le Cloud.
+
+Depuis le dossier `vagrant/` :
+
+```bash
+vagrant up        # crée et démarre les machines
+vagrant status    # affiche leur état
+vagrant destroy   # les supprime
+```
+
+La configuration des services est réalisée ensuite avec Ansible (voir le dossier `ansible/`).
