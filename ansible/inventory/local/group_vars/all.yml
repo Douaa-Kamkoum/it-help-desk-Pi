@@ -11,7 +11,7 @@ dns_reverse_zone: 56.168.192.in-addr.arpa
 dns_forwarders:
   - 1.1.1.1
   - 8.8.8.8
-  
+
 # Réseaux autorisés à interroger le DNS
 dns_allowed_networks:
   - 192.168.56.0/24
@@ -24,3 +24,9 @@ dns_records:
 
 dns_aliases:
   - { name: helpdesk, target: vm-web }
+
+# Configuration du serveur Web Nginx
+web_server_name: vm-web
+web_server_port: 80
+web_document_root: /var/www/html
+web_page_title: Infrastructure Cloud DevOps
