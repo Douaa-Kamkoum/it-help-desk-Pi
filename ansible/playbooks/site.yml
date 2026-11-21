@@ -14,3 +14,11 @@
     - dns-client
 
 - ansible.builtin.import_playbook: test_dns_client.yml
+
+- name: Configurer le reverse proxy Nginx
+  hosts: web
+  become: true
+  roles:
+    - nginx
+
+- ansible.builtin.import_playbook: test_nginix.yml

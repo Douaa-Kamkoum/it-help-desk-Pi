@@ -27,7 +27,8 @@ dns_aliases:
 
 
 # Configuration du serveur Web Nginx
-web_server_name: vm-web
+app_port: 8080
+nginx_server_name: "helpdesk.{{ project_domain }}"
 web_server_port: 80
 web_document_root: /var/www/html
 web_page_title: Infrastructure Cloud DevOps
