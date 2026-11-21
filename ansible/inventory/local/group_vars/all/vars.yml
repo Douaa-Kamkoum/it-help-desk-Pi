@@ -29,10 +29,14 @@ dns_aliases:
 # Configuration du serveur Web Nginx
 app_port: 8080
 nginx_server_name: "helpdesk.{{ project_domain }}"
-web_server_port: 80
-web_document_root: /var/www/html
-web_page_title: Infrastructure Cloud DevOps
+
 
 db_name: helpdesk_db
 db_user: helpdesk_user
 db_port: 3306
+
+app_user: helpdesk
+app_install_dir: /opt/helpdesk
+app_jar_name: app.jar
+app_jar_src: "{{ playbook_dir }}/../../application/it-help-desk-java/target/ithelpdesk-1.0.0.jar"
+app_java_opts: "-Xms128m -Xmx384m"

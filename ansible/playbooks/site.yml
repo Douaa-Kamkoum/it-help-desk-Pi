@@ -3,7 +3,8 @@
   hosts: dns
   become: true
   roles:
-    - dns
+      - { role: dns, tags: dns }
+
 
 - ansible.builtin.import_playbook: test_dns.yml
 
@@ -11,7 +12,7 @@
   hosts: dns_clients
   become: true
   roles:
-    - dns-client
+    - { role: dns-client, tags: dns-client }
 
 - ansible.builtin.import_playbook: test_dns_client.yml
 
@@ -19,7 +20,7 @@
   hosts: web
   become: true
   roles:
-    - nginx
+    - { role: nginx, tags: nginx }
 
 - ansible.builtin.import_playbook: test_nginix.yml
 
@@ -27,6 +28,13 @@
   hosts: db
   become: true
   roles:
-    - mysql
+    - { role: mysql, tags: mysql }
 
 - ansible.builtin.import_playbook: test_mysql.yml
+
+- name: Déployer l'application Java
+  hosts: web
+  become: true
+  roles:
+    - { role: app, tags: app }
+- ansible.builtin.import_playbook: test_helpdesk.yml
