@@ -1,16 +1,22 @@
-$TTL 86400
-@   IN  SOA vm-dns.{{ project_domain }}. admin.{{ project_domain }}. (
-        {{ dns_serial }} ; serial
-        3600             ; refresh
-        1800             ; retry
-        604800           ; expire
-        86400 )          ; negative cache
 
+$TTL 86400
+
+@   IN  SOA vm-dns.{{ project_domain }}. admin.{{ project_domain }}. (
+        {{ dns_serial }} ; Serial
+        3600             ; Refresh
+        1800             ; Retry
+        604800           ; Expire
+        86400 )          ; Negative Cache
+
+; Serveur DNS principal
 @   IN  NS  vm-dns.{{ project_domain }}.
 
-{% for r in dns_records %}
-{{ r.name }}    IN  A      {{ r.ip }}
+; Enregistrements A
+{% for record in dns_records %}
+{{ record.name }}    IN  A      {{ record.ip }}
 {% endfor %}
-{% for a in dns_aliases %}
-{{ a.name }}    IN  CNAME  {{ a.target }}.{{ project_domain }}.
+
+; Alias CNAME
+{% for alias in dns_aliases %}
+{{ alias.name }}     IN  CNAME  {{ alias.target }}.{{ project_domain }}.
 {% endfor %}
