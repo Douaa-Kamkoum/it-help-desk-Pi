@@ -1,0 +1,60 @@
+
+---
+- name: Tester le serveur DNS
+  hosts: localhost
+  connection: local
+  become: false
+  gather_facts: false
+
+  vars:
+    project_domain: "{{ hostvars[groups['dns'][0]]['project_domain'] }}"
+    dns_server_ip: "{{ hostvars[groups['dns'][0]]['dns_server_ip'] }}"
+    dns_records: "{{ hostvars[groups['dns'][0]]['dns_records'] }}"
+
+  tasks:
+
+    # Resolution directe
+
+    - name: Tester les resolutions directes
+      ansible.builtin.command:
+        cmd: "nslookup {{ item.name }}.{{ project_domain }} {{ dns_server_ip }}"
+      loop: "{{ dns_records }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: forward_tests
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher les resultats de resolution directe
+      ansible.builtin.debug:
+        msg: >-
+          {{ item.item.name }} :
+          {{ 'OK' if item.rc == 0 and item.item.ip in item.stdout
+             else 'ECHEC' }}
+      loop: "{{ forward_tests.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
+    # Resolution inverse
+
+    - name: Tester les resolutions inverses
+      ansible.builtin.command:
+        cmd: "nslookup {{ item.ip }} {{ dns_server_ip }}"
+      loop: "{{ dns_records }}"
+      loop_control:
+        label: "{{ item.name }}"
+      register: reverse_tests
+      changed_when: false
+      failed_when: false
+
+    - name: Afficher les resultats de resolution inverse
+      ansible.builtin.debug:
+        msg: >-
+          {{ item.item.name }} :
+          {{ 'OK' if item.rc == 0 and
+             (item.item.name + '.' + project_domain) in item.stdout
+             else 'ECHEC' }}
+      loop: "{{ reverse_tests.results }}"
+      loop_control:
+        label: "{{ item.item.name }}"
+
