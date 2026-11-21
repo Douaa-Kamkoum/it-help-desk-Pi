@@ -1,0 +1,26 @@
+project_domain: projet.lan
+mgmt_network: 192.168.56.0/24
+
+dns_server_ip: 192.168.56.10
+web_server_ip: 192.168.56.11
+db_server_ip: 192.168.56.12
+monitoring_server_ip: 192.168.56.13
+
+dns_serial: 2026112101
+dns_reverse_zone: 56.168.192.in-addr.arpa
+dns_forwarders:
+  - 1.1.1.1
+  - 8.8.8.8
+  
+# Réseaux autorisés à interroger le DNS
+dns_allowed_networks:
+  - 192.168.56.0/24
+
+dns_records:
+  - { name: vm-dns,     ip: "{{ dns_server_ip }}" }
+  - { name: vm-web,     ip: "{{ web_server_ip }}" }
+  - { name: vm-db,      ip: "{{ db_server_ip }}" }
+  - { name: vm-monitor, ip: "{{ monitoring_server_ip }}" }
+
+dns_aliases:
+  - { name: helpdesk, target: vm-web }
