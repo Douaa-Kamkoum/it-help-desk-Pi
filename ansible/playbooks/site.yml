@@ -6,3 +6,11 @@
     - dns
 
 - ansible.builtin.import_playbook: test_dns.yml
+
+- name: Configurer le résolveur DNS des machines clientes
+  hosts: dns_clients
+  become: true
+  roles:
+    - dns-client
+
+- ansible.builtin.import_playbook: test_dns_client.yml

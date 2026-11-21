@@ -25,6 +25,7 @@ dns_records:
 dns_aliases:
   - { name: helpdesk, target: vm-web }
 
+
 # Configuration du serveur Web Nginx
 web_server_name: vm-web
 web_server_port: 80

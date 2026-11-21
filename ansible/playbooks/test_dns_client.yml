@@ -1,0 +1,17 @@
+
+
+---
+- name: Tester le résolveur DNS des machines clientes
+  hosts: dns_clients
+  gather_facts: false
+
+  tasks:
+    - name: Vérifier la résolution du nom du serveur DNS
+      ansible.builtin.command:
+        cmd: "nslookup vm-dns.{{ project_domain }}"
+      register: dns_test
+      changed_when: false
+
+    - name: Afficher le résultat du test DNS
+      ansible.builtin.debug:
+        var: dns_test.stdout

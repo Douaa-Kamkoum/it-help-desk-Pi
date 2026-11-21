@@ -1,0 +1,26 @@
+---
+- name: Créer le répertoire de configuration de systemd-resolved
+  ansible.builtin.file:
+    path: /etc/systemd/resolved.conf.d
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+- name: Configurer le serveur DNS du projet
+  ansible.builtin.copy:
+    dest: /etc/systemd/resolved.conf.d/project-dns.conf
+    content: |
+      [Resolve]
+      DNS={{ dns_server_ip }}
+      Domains=~{{ project_domain }}
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Redémarrer systemd-resolved
+
+- name: Activer et démarrer le service systemd-resolved
+  ansible.builtin.systemd:
+    name: systemd-resolved
+    enabled: true
+    state: started
