@@ -28,3 +28,5 @@
   become: true
   roles:
     - mysql
+
+- ansible.builtin.import_playbook: test_mysql.yml
