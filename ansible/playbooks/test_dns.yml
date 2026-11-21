@@ -27,10 +27,15 @@
 
     - name: Afficher les resultats de resolution directe
       ansible.builtin.debug:
-        msg: >-
-          {{ item.item.name }} :
-          {{ 'OK' if item.rc == 0 and item.item.ip in item.stdout
-             else 'ECHEC' }}
+        msg:
+          - "=============================================="
+          - "          TEST DE RESOLUTION DIRECTE"
+          - "=============================================="
+          - "Nom DNS     : {{ item.item.name }}.{{ project_domain }}"
+          - "Adresse IP  : {{ item.item.ip }}"
+          - "Serveur DNS : {{ dns_server_ip }}"
+          - "Statut      : {{ 'REUSSI' if item.rc == 0 and item.item.ip in item.stdout else 'ECHEC' }}"
+          - "=============================================="
       loop: "{{ forward_tests.results }}"
       loop_control:
         label: "{{ item.item.name }}"
@@ -49,12 +54,15 @@
 
     - name: Afficher les resultats de resolution inverse
       ansible.builtin.debug:
-        msg: >-
-          {{ item.item.name }} :
-          {{ 'OK' if item.rc == 0 and
-             (item.item.name + '.' + project_domain) in item.stdout
-             else 'ECHEC' }}
+        msg:
+          - "=============================================="
+          - "          TEST DE RESOLUTION INVERSE"
+          - "=============================================="
+          - "Adresse IP  : {{ item.item.ip }}"
+          - "Nom DNS     : {{ item.item.name }}.{{ project_domain }}"
+          - "Serveur DNS : {{ dns_server_ip }}"
+          - "Statut      : {{ 'REUSSI' if item.rc == 0 and (item.item.name + '.' + project_domain) in item.stdout else 'ECHEC' }}"
+          - "=============================================="
       loop: "{{ reverse_tests.results }}"
       loop_control:
         label: "{{ item.item.name }}"
-
