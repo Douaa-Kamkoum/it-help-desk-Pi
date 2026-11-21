@@ -4,3 +4,5 @@
   become: true
   roles:
     - dns
+
+- ansible.builtin.import_playbook: test_dns.yml
