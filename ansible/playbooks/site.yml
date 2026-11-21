@@ -22,3 +22,9 @@
     - nginx
 
 - ansible.builtin.import_playbook: test_nginix.yml
+
+- name: Configurer la base de données MySQL
+  hosts: db
+  become: true
+  roles:
+    - mysql
