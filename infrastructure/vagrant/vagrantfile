@@ -22,8 +22,7 @@ VMS = [
 ]
 
 # Lignes de /etc/hosts générées depuis VMS (une seule source de vérité)
-HOSTS = VMS.map { |v| "#{LAN_NET}.#{v[:id]} #{v[:name]}.#{DOMAIN} #{v[:name]}" }.join("\n")
-
+HOSTS = VMS.map { |v| "#{MGMT_NET}.#{v[:id]} #{v[:name]}.#{DOMAIN} #{v[:name]}" }.join("\n")
 Vagrant.configure("2") do |config|
   config.vm.box = BOX
   config.vm.box_check_update = false
