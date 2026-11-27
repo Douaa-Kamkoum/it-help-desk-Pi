@@ -1,0 +1,78 @@
+---
+- name: Log in to Zabbix API
+  uri:
+    url: "http://{{ monitoring_server_ip }}:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      id: 1
+      method: user.login
+      params:
+        username: "{{ zabbix_api_user | default('Admin') }}"
+        password: "{{ vault_zabbix_admin_password }}"
+    status_code: 200
+  register: zabbix_login
+  no_log: true
+
+- name: Get Linux template
+  uri:
+    url: "http://{{ monitoring_server_ip }}:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ zabbix_login.json.result }}"
+    body:
+      jsonrpc: "2.0"
+      id: 2
+      method: template.get
+      params:
+        filter:
+          host:
+            - "Linux by Zabbix agent"
+    status_code: 200
+  register: linux_template
+
+- name: Get monitored hosts
+  uri:
+    url: "http://{{ monitoring_server_ip }}:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ zabbix_login.json.result }}"
+    body:
+      jsonrpc: "2.0"
+      id: 3
+      method: host.get
+      params:
+        output:
+          - hostid
+        filter:
+          host:
+            - vm-dns
+            - vm-web
+            - vm-db
+            - vm-monitor
+    status_code: 200
+  register: zabbix_hosts
+
+- name: Associate Linux template with monitored hosts
+  uri:
+    url: "http://{{ monitoring_server_ip }}:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ zabbix_login.json.result }}"
+    body:
+      jsonrpc: "2.0"
+      id: 4
+      method: host.massadd
+      params:
+        hosts:
+          - hostid: "{{ item.hostid }}"
+        templates:
+          - templateid: "{{ linux_template.json.result[0].templateid }}"
+    status_code: 200
+  loop: "{{ zabbix_hosts.json.result }}"
+  loop_control:
+    label: "{{ item.hostid }}"

@@ -1,0 +1,69 @@
+
+---
+- name: Tester l'application Helpdesk
+  hosts: web
+  become: true
+  gather_facts: false
+
+  tasks:
+    # Test du service Helpdesk
+    - name: Verifier que le service Helpdesk est actif
+      ansible.builtin.command:
+        cmd: systemctl is-active helpdesk
+      register: app_status
+      changed_when: false
+      failed_when: app_status.stdout != "active"
+
+    - name: Afficher le resultat du service Helpdesk
+      ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - "       TEST DU SERVICE HELPDESK"
+          - "========================================"
+          - "Serveur : {{ inventory_hostname }}"
+          - "Service : Helpdesk"
+          - "Statut  : ACTIF"
+          - "Resultat : REUSSI"
+          - "========================================"
+
+    # Test du port de l'application
+    - name: Verifier que l'application ecoute sur son port
+      ansible.builtin.wait_for:
+        host: 127.0.0.1
+        port: "{{ app_port }}"
+        timeout: 120
+        state: started
+
+    - name: Afficher le resultat du port applicatif
+      ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - "       TEST DU PORT APPLICATIF"
+          - "========================================"
+          - "Application : Helpdesk"
+          - "Port        : {{ app_port }}"
+          - "Statut      : EN ECOUTE"
+          - "Resultat    : REUSSI"
+          - "========================================"
+
+    # Test de la page de connexion
+    - name: Verifier que la page de connexion repond
+      ansible.builtin.uri:
+        url: "http://127.0.0.1:{{ app_port }}/login"
+        status_code: 200
+      register: app_check
+      until: app_check.status == 200
+      retries: 6
+      delay: 10
+
+    - name: Afficher le resultat de la page de connexion
+      ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - "       TEST DE LA PAGE WEB"
+          - "========================================"
+          - "URL    : /login"
+          - "Code HTTP : {{ app_check.status }}"
+          - "Statut : PAGE ACCESSIBLE"
+          - "Resultat : REUSSI"
+          - "========================================"

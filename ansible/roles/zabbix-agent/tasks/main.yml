@@ -1,0 +1,53 @@
+---
+- name: Download Zabbix repository package
+  ansible.builtin.get_url:
+    url: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_{{ zabbix_version }}+{{ zabbix_ubuntu_release }}_all.deb"
+    dest: /tmp/zabbix-release.deb
+
+- name: Install Zabbix repository
+  ansible.builtin.apt:
+    deb: /tmp/zabbix-release.deb
+
+- name: Install Zabbix agent 2
+  ansible.builtin.apt:
+    name: zabbix-agent2
+    state: present
+    update_cache: true
+
+- name: Configure Zabbix agent
+  ansible.builtin.lineinfile:
+    path: /etc/zabbix/zabbix_agent2.conf
+    regexp: "{{ item.key }}"
+    line: "{{ item.line }}"
+  loop:
+    - { key: "^Server=", line: "Server=127.0.0.1,{{ monitoring_server_ip }}" }
+    - { key: "^Hostname=", line: "Hostname={{ inventory_hostname }}" }
+  notify: Restart Zabbix agent
+
+- name: Install Python virtual environment packages
+  ansible.builtin.apt:
+    name:
+      - python3-venv
+      - python3-pip
+    state: present
+    update_cache: true
+  when: "'web' in group_names"
+
+- name: Create Helpdesk metrics virtual environment
+  ansible.builtin.command:
+    cmd: python3 -m venv /opt/helpdesk-metrics-venv
+    creates: /opt/helpdesk-metrics-venv/bin/python
+  when: "'web' in group_names"
+
+- name: Install MySQL connector in virtual environment
+  ansible.builtin.pip:
+    name: mysql-connector-python
+    state: present
+    virtualenv: /opt/helpdesk-metrics-venv
+  when: "'web' in group_names"
+
+- name: Enable and start Zabbix agent 2
+  ansible.builtin.systemd:
+    name: zabbix-agent2
+    enabled: true
+    state: started

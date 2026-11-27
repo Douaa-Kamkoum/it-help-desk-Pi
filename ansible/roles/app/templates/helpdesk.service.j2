@@ -1,0 +1,18 @@
+[Unit]
+Description=IT Helpdesk (Spring Boot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User={{ app_user }}
+Group={{ app_user }}
+WorkingDirectory={{ app_install_dir }}
+EnvironmentFile=/etc/helpdesk/helpdesk.env
+ExecStart=/usr/bin/java {{ app_java_opts }} -jar {{ app_install_dir }}/{{ app_jar_name }}
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

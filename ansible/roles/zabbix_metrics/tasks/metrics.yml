@@ -1,0 +1,23 @@
+---
+- name: Create scripts directory
+  ansible.builtin.file:
+    path: /usr/local/bin
+    state: directory
+    mode: '0755'
+
+- name: Deploy Helpdesk metrics script
+  ansible.builtin.template:
+    src: helpdesk_metrics.py.j2
+    dest: /usr/local/bin/helpdesk_metrics.py
+    owner: root
+    group: zabbix
+    mode: '0750'
+
+- name: Configure custom metrics
+  ansible.builtin.template:
+    src: metrics.conf.j2
+    dest: "{{ zabbix_agent_conf_dir }}/metrics.conf"
+    owner: root
+    group: root
+    mode: '0644'
+  notify: Restart Zabbix agent

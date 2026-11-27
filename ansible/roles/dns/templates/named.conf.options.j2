@@ -1,0 +1,48 @@
+
+options {
+    directory "/var/cache/bind";
+
+    // Interfaces d'ecoute
+    listen-on {
+        127.0.0.1;
+        {{ dns_server_ip }};
+    };
+
+    listen-on-v6 { none; };
+
+    // Clients autorises
+    allow-query {
+        localhost;
+{% for network in dns_allowed_networks %}
+        {{ network }};
+{% endfor %}
+    };
+
+    // Recursion DNS
+    recursion yes;
+
+    allow-recursion {
+        localhost;
+{% for network in dns_allowed_networks %}
+        {{ network }};
+{% endfor %}
+    };
+
+    allow-query-cache {
+        localhost;
+{% for network in dns_allowed_networks %}
+        {{ network }};
+{% endfor %}
+    };
+
+    // Serveurs DNS externes
+    forwarders {
+{% for forwarder in dns_forwarders %}
+        {{ forwarder }};
+{% endfor %}
+    };
+
+    // Securite
+    allow-transfer { none; };
+    dnssec-validation auto;
+};

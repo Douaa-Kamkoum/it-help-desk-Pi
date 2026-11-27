@@ -1,0 +1,47 @@
+
+---
+- name: Tester le serveur Web Nginx
+  hosts: web
+  become: true
+  gather_facts: false
+
+  tasks:
+    # Test du service Nginx
+    - name: Vérifier que le service Nginx est actif
+      ansible.builtin.command:
+        cmd: systemctl is-active nginx
+      register: nginx_status
+      changed_when: false
+      failed_when: nginx_status.stdout != "active"
+
+    - name: Afficher le résultat du service Nginx
+      ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - "       TEST DU SERVICE NGINX"
+          - "========================================"
+          - "Serveur : {{ inventory_hostname }}"
+          - "Service : Nginx"
+          - "Statut  : ACTIF"
+          - "Résultat : REUSSI"
+          - "========================================"
+
+    # Test du port HTTP
+    - name: Vérifier que Nginx écoute sur le port 80
+      ansible.builtin.wait_for:
+        port: 80
+        timeout: 10
+        state: started
+
+    - name: Afficher le résultat du port HTTP
+      ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - "          TEST DU PORT HTTP"
+          - "========================================"
+          - "Serveur Web : {{ inventory_hostname }}"
+          - "Port        : 80"
+          - "Protocole   : HTTP"
+          - "Statut      : EN ECOUTE"
+          - "Résultat    : REUSSI"
+          - "========================================"

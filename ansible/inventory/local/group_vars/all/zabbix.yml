@@ -1,0 +1,21 @@
+---
+zabbix_version: "7.0"
+zabbix_ubuntu_release: "ubuntu{{ ansible_facts['distribution_version'] }}"
+zabbix_php_version: "{{ '8.3' if ansible_facts['distribution_version'] == '24.04' else '8.1' }}"
+
+zabbix_server_name: "Supervision {{ project_domain }}"
+zabbix_server_port: 10051
+zabbix_data_dir: /var/lib/zabbix-install
+zabbix_php_timezone: Africa/Tunis
+
+zabbix_frontend_port: 8081
+zabbix_frontend_server_name: "vm-monitor.{{ project_domain }}"
+
+zabbix_db_name: zabbix
+zabbix_db_user: zabbix
+zabbix_db_port: "{{ db_port }}"
+
+zabbix_api_user: Admin
+zabbix_host_group_id: 2
+zabbix_agent_port: 10050
+zabbix_agent_conf_dir: /etc/zabbix/zabbix_agent2.d

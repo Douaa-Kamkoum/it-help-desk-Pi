@@ -1,0 +1,5 @@
+---
+- name: Restart helpdesk
+  ansible.builtin.systemd:
+    name: helpdesk
+    state: restarted

@@ -1,0 +1,9 @@
+---
+- name: Configure predefined Zabbix templates
+  ansible.builtin.import_tasks: templates.yml
+
+- name: Configure custom Helpdesk metrics
+  ansible.builtin.import_tasks: metrics.yml
+
+- name: Configure Helpdesk Zabbix items
+  ansible.builtin.import_tasks: items.yml

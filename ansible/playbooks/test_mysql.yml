@@ -1,0 +1,64 @@
+
+---
+- name: Tester le serveur de base de donnees MySQL
+  hosts: db
+  become: true
+  gather_facts: false
+
+  tasks:
+    # Test du service MySQL
+    - name: Verifier que le service MySQL est actif
+      ansible.builtin.command:
+        cmd: systemctl is-active mysql
+      register: mysql_status
+      changed_when: false
+      failed_when: mysql_status.stdout != "active"
+
+    - name: Afficher le resultat du service MySQL
+      ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - "       TEST DU SERVICE MYSQL"
+          - "========================================"
+          - "Serveur : {{ inventory_hostname }}"
+          - "Service : MySQL"
+          - "Statut  : ACTIF"
+          - "Resultat : REUSSI"
+          - "========================================"
+
+    - name: Verifier que MySQL ecoute sur son adresse privee
+      ansible.builtin.wait_for:
+        host: "{{ db_server_ip }}"
+        port: "{{ db_port }}"
+        timeout: 10
+        state: started
+    - name: Afficher le resultat du port MySQL
+      ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - "       TEST DU PORT MYSQL"
+          - "========================================"
+          - "Serveur : {{ inventory_hostname }}"
+          - "Port    : 3306"
+          - "Statut  : EN ECOUTE"
+          - "Resultat : REUSSI"
+          - "========================================"
+
+    # Test de connexion locale
+    - name: Verifier que MySQL accepte les connexions locales
+      ansible.builtin.command:
+        cmd: mysqladmin --user=root --protocol=socket ping
+      register: mysql_ping
+      changed_when: false
+      failed_when: mysql_ping.rc != 0
+
+    - name: Afficher le resultat de la connexion MySQL
+      ansible.builtin.debug:
+        msg:
+          - "========================================"
+          - "       TEST DE CONNEXION MYSQL"
+          - "========================================"
+          - "Serveur : {{ inventory_hostname }}"
+          - "Connexion locale : OK"
+          - "Resultat : REUSSI"
+          - "========================================"

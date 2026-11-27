@@ -1,0 +1,216 @@
+#!/usr/bin/env python3
+
+import sys
+import json
+import mysql.connector
+
+DB_CONFIG = {
+    "host": "{{ db_server_ip }}",
+    "user": "{{ db_user }}",
+    "password": "{{ vault_db_password }}",
+    "database": "{{ db_name }}"
+}
+
+
+def get_metric(metric):
+    connection = mysql.connector.connect(**DB_CONFIG)
+    cursor = connection.cursor()
+
+    queries = {
+        "pending": """
+            SELECT COUNT(*) FROM tickets
+            WHERE status = 'NEW'
+        """,
+
+        "in_progress": """
+            SELECT COUNT(*) FROM tickets
+            WHERE status = 'IN_PROGRESS'
+        """,
+
+        "resolved": """
+            SELECT COUNT(*) FROM tickets
+            WHERE status = 'RESOLVED'
+        """,
+
+        "backlog": """
+            SELECT COUNT(*) FROM tickets
+            WHERE status IN ('NEW', 'IN_PROGRESS')
+        """,
+
+        "old_24h": """
+            SELECT COUNT(*) FROM tickets
+            WHERE status IN ('NEW', 'IN_PROGRESS')
+            AND created_at < NOW() - INTERVAL 24 HOUR
+        """,
+
+        "oldest_age": """
+            SELECT COALESCE(
+                TIMESTAMPDIFF(SECOND, MIN(created_at), NOW()), 0
+            )
+            FROM tickets
+            WHERE status IN ('NEW', 'IN_PROGRESS')
+        """,
+
+        "users_total": """
+            SELECT COUNT(*) FROM users
+        """,
+
+        "users_high_backlog": """
+            SELECT COUNT(*) FROM (
+                SELECT user_id
+                FROM tickets
+                WHERE status IN ('NEW', 'IN_PROGRESS')
+                GROUP BY user_id
+                HAVING COUNT(*) >= 3
+            ) AS user_backlog
+        """,
+
+        "users_repeated_incidents": """
+            SELECT COUNT(DISTINCT user_id) FROM (
+                SELECT user_id, category_id
+                FROM tickets
+                WHERE status IN ('NEW', 'IN_PROGRESS')
+                GROUP BY user_id, category_id
+                HAVING COUNT(*) >= 2
+            ) AS repeated_incidents
+        """,
+
+        "categories_max_backlog": """
+            SELECT COALESCE(MAX(ticket_count), 0)
+            FROM (
+                SELECT COUNT(*) AS ticket_count
+                FROM tickets
+                WHERE status IN ('NEW', 'IN_PROGRESS')
+                GROUP BY category_id
+            ) AS category_counts
+        """,
+
+        "categories_high_backlog": """
+            SELECT COUNT(*) FROM (
+                SELECT category_id
+                FROM tickets
+                WHERE status IN ('NEW', 'IN_PROGRESS')
+                GROUP BY category_id
+                HAVING COUNT(*) >= 5
+            ) AS category_backlog
+        """,
+
+        "categories_old_tickets": """
+            SELECT COUNT(DISTINCT category_id)
+            FROM tickets
+            WHERE status IN ('NEW', 'IN_PROGRESS')
+            AND created_at < NOW() - INTERVAL 48 HOUR
+        """,
+
+        "resolution_rate": """
+            SELECT COALESCE(
+                ROUND(
+                    SUM(status = 'RESOLVED') * 100.0 /
+                    NULLIF(COUNT(*), 0), 2
+                ), 0
+            )
+            FROM tickets
+        """
+    }
+
+    try:
+        if metric == "users_high_backlog_details":
+            cursor.execute("""
+                SELECT
+                    user_id,
+                    COUNT(*) AS total_open_tickets,
+                    SUM(status = 'NEW') AS pending_tickets,
+                    SUM(status = 'IN_PROGRESS') AS in_progress_tickets
+                FROM tickets
+                WHERE status IN ('NEW', 'IN_PROGRESS')
+                GROUP BY user_id
+                HAVING COUNT(*) >= 3
+                ORDER BY total_open_tickets DESC
+            """)
+
+            return [
+                {
+                    "user_id": row[0],
+                    "total_open_tickets": row[1],
+                    "pending_tickets": row[2],
+                    "in_progress_tickets": row[3]
+                }
+                for row in cursor.fetchall()
+            ]
+
+        if metric == "users_repeated_incidents_details":
+            cursor.execute("""
+                SELECT
+                    user_id,
+                    category_id,
+                    COUNT(*) AS incident_count,
+                    SUM(status = 'NEW') AS pending_tickets,
+                    SUM(status = 'IN_PROGRESS') AS in_progress_tickets
+                FROM tickets
+                WHERE status IN ('NEW', 'IN_PROGRESS')
+                GROUP BY user_id, category_id
+                HAVING COUNT(*) >= 2
+                ORDER BY incident_count DESC
+            """)
+
+            return [
+                {
+                    "user_id": row[0],
+                    "category_id": row[1],
+                    "incident_count": row[2],
+                    "pending_tickets": row[3],
+                    "in_progress_tickets": row[4]
+                }
+                for row in cursor.fetchall()
+            ]
+
+        if metric == "categories_open_tickets":
+            cursor.execute("""
+                SELECT c.id, c.name, COUNT(t.id)
+                FROM categories c
+                LEFT JOIN tickets t
+                    ON c.id = t.category_id
+                    AND t.status IN ('NEW', 'IN_PROGRESS')
+                GROUP BY c.id, c.name
+                ORDER BY c.name
+            """)
+
+            return [
+                {
+                    "{% raw %}{#CATEGORY_ID}{% endraw %}": row[0],
+                    "{% raw %}{#CATEGORY_NAME}{% endraw %}": row[1],
+                    "{% raw %}{#OPEN_TICKETS}{% endraw %}": row[2]
+                }
+                for row in cursor.fetchall()
+            ]
+
+        if metric not in queries:
+            raise ValueError("Unknown metric")
+
+        cursor.execute(queries[metric])
+        return cursor.fetchone()[0]
+
+    finally:
+        cursor.close()
+        connection.close()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) != 2:
+        sys.exit(1)
+
+    try:
+        result = get_metric(sys.argv[1])
+
+        if sys.argv[1] in [
+            "categories_open_tickets",
+            "users_high_backlog_details",
+            "users_repeated_incidents_details"
+        ]:
+            print(json.dumps({"data": result}, default=float))
+        else:
+            print(result)
+
+    except Exception as e:
+        print("Error: " + str(e), file=sys.stderr)
+        sys.exit(1)

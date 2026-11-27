@@ -1,0 +1,160 @@
+---
+- name: Get Helpdesk template group
+  ansible.builtin.uri:
+    url: "http://{{ monitoring_server_ip }}:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ zabbix_login.json.result }}"
+    body:
+      jsonrpc: "2.0"
+      id: 1
+      method: templategroup.get
+      params:
+        filter:
+          name: ["Templates/Applications"]
+    status_code: 200
+  register: template_group
+
+- name: Get Helpdesk template
+  ansible.builtin.uri:
+    url: "http://{{ monitoring_server_ip }}:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ zabbix_login.json.result }}"
+    body:
+      jsonrpc: "2.0"
+      id: 2
+      method: template.get
+      params:
+        output: [templateid]
+        filter:
+          host: ["Template Helpdesk Metrics"]
+    status_code: 200
+  register: helpdesk_template
+
+- name: Create Helpdesk template
+  ansible.builtin.uri:
+    url: "http://{{ monitoring_server_ip }}:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ zabbix_login.json.result }}"
+    body:
+      jsonrpc: "2.0"
+      id: 3
+      method: template.create
+      params:
+        host: "Template Helpdesk Metrics"
+        name: "Template Helpdesk Metrics"
+        groups:
+          - groupid: "{{ template_group.json.result[0].groupid }}"
+    status_code: 200
+  register: new_template
+  when: helpdesk_template.json.result | length == 0
+
+- name: Get template and vm-web IDs
+  ansible.builtin.uri:
+    url: "http://{{ monitoring_server_ip }}:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ zabbix_login.json.result }}"
+    body:
+      jsonrpc: "2.0"
+      id: 4
+      method: host.get
+      params:
+        output: [hostid, host]
+        filter:
+          host: "{{ groups['web'] }}"
+    status_code: 200
+  register: web_host
+
+- name: Save Helpdesk IDs
+  set_fact:
+    helpdesk_template_id: "{{ helpdesk_template.json.result[0].templateid if helpdesk_template.json.result | length > 0 else new_template.json.result.templateids[0] }}"
+    zabbix_web_host_id: "{{ web_host.json.result[0].hostid }}"
+
+- name: Associate Helpdesk template with vm-web
+  ansible.builtin.uri:
+    url: "http://{{ monitoring_server_ip }}:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ zabbix_login.json.result }}"
+    body:
+      jsonrpc: "2.0"
+      id: 5
+      method: host.massadd
+      params:
+        hosts:
+          - hostid: "{{ zabbix_web_host_id }}"
+        templates:
+          - templateid: "{{ helpdesk_template_id }}"
+    status_code: 200
+
+- name: Define Helpdesk metrics
+  set_fact:
+    helpdesk_items:
+      - {name: "Pending tickets", key: "helpdesk.pending", value_type: 3}
+      - {name: "Tickets in progress", key: "helpdesk.in_progress", value_type: 3}
+      - {name: "Resolved tickets", key: "helpdesk.resolved", value_type: 3}
+      - {name: "Total ticket backlog", key: "helpdesk.backlog", value_type: 3}
+      - {name: "Tickets older than 24 hours", key: "helpdesk.old_24h", value_type: 3}
+      - {name: "Age of oldest ticket", key: "helpdesk.oldest_age", value_type: 3, units: "s"}
+      - {name: "Total Helpdesk users", key: "helpdesk.users.total", value_type: 3}
+      - {name: "Users with high backlog", key: "helpdesk.users.high_backlog", value_type: 3}
+      - {name: "Users with repeated incidents", key: "helpdesk.users.repeated_incidents", value_type: 3}
+      - {name: "Users with high backlog (details)", key: "helpdesk.users.high_backlog.details", value_type: 4}
+      - {name: "Users with repeated incidents (details)", key: "helpdesk.users.repeated_incidents.details", value_type: 4}
+      - {name: "Open tickets by category (JSON)", key: "helpdesk.categories.open_tickets", value_type: 4}
+      - {name: "Maximum category backlog", key: "helpdesk.categories.max_backlog", value_type: 3}
+      - {name: "Categories with high backlog", key: "helpdesk.categories.high_backlog", value_type: 3}
+      - {name: "Categories with old tickets", key: "helpdesk.categories.old_tickets", value_type: 3}
+      - {name: "Ticket resolution rate", key: "helpdesk.resolution_rate", value_type: 0, units: "%"}
+
+- name: Get existing Helpdesk items
+  ansible.builtin.uri:
+    url: "http://{{ monitoring_server_ip }}:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ zabbix_login.json.result }}"
+    body:
+      jsonrpc: "2.0"
+      id: 6
+      method: item.get
+      params:
+        output: [key_]
+        templateids: ["{{ helpdesk_template_id }}"]
+    status_code: 200
+  register: existing_items
+
+- name: Create missing Helpdesk items
+  ansible.builtin.uri:
+    url: "http://{{ monitoring_server_ip }}:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ zabbix_login.json.result }}"
+    body:
+      jsonrpc: "2.0"
+      id: 7
+      method: item.create
+      params:
+        name: "{{ item.name }}"
+        key_: "{{ item.key }}"
+        hostid: "{{ helpdesk_template_id }}"
+        type: 0
+        value_type: "{{ item.value_type }}"
+        delay: "1m"
+        history: "7d"
+        trends: "{{ '0' if item.value_type == 4 else '365d' }}"
+        units: "{{ item.units | default('') }}"
+    status_code: 200
+  loop: "{{ helpdesk_items }}"
+  loop_control:
+    label: "{{ item.key }}"
+  when: item.key not in (existing_items.json.result | map(attribute='key_') | list)
