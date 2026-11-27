@@ -189,3 +189,60 @@ jobs:
           name: it-helpdesk-application
           path: application/it-help-desk-java/target/ithelpdesk-1.0.0.jar
           if-no-files-found: error
+
+
+
+  # ==================================================================
+  # 🔐 JOB 3 — DEPENDENCY SECURITY ANALYSIS
+  # ==================================================================
+  dependency-check:
+    name: "🔐 Security | OWASP Dependency-Check"
+    runs-on: self-hosted
+    timeout-minutes: 60
+    needs: application-validation
+
+    # ⚠️ Analyse temporairement non bloquante
+    # Une vulnérabilité avec un CVSS >= 9 ne bloque pas encore la pipeline.
+    continue-on-error: true
+
+    defaults:
+      run:
+        working-directory: application/it-help-desk-java
+
+    env:
+      NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
+    steps:
+      # --------------------------------------------------------------
+      # 1. 📥 Retrieve source code
+      # --------------------------------------------------------------
+      - name: "📥 Checkout | Retrieve Source Code"
+        uses: actions/checkout@v4
+
+      # --------------------------------------------------------------
+      # 2. 🔍 Scan dependencies for known vulnerabilities
+      # --------------------------------------------------------------
+      - name: "🔍 OWASP | Scan Dependencies"
+        run: |
+          ARGS=(-Dformats=HTML,JSON -DfailBuildOnCVSS=9)
+
+          if [ -n "$NVD_API_KEY" ]; then
+            ARGS+=("-DnvdApiKey=$NVD_API_KEY")
+          else
+            echo "::warning::NVD_API_KEY is not configured. Dependency-Check will use its available NVD access."
+          fi
+
+          mvn -B org.owasp:dependency-check-maven:12.1.0:check "${ARGS[@]}"
+
+      # --------------------------------------------------------------
+      # 3. 📊 Publish vulnerability analysis reports
+      # --------------------------------------------------------------
+      - name: "📊 Artifacts | Publish OWASP Reports"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: owasp-dependency-check-reports
+          path: |
+            application/it-help-desk-java/target/dependency-check-report.html
+            application/it-help-desk-java/target/dependency-check-report.json
+          if-no-files-found: ignore
