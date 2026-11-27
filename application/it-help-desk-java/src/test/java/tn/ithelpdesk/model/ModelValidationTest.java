@@ -34,10 +34,38 @@ class ModelValidationTest {
         assertTrue(champsEnErreur(utilisateur()).isEmpty());
     }
 
+    @Test
+    void unNomDUtilisateurVideEstRefuse() {
+        AppUser u = utilisateur();
+        u.setUsername("   ");
+        assertTrue(champsEnErreur(u).contains("username"));
+    }
+
+    @Test
+    void unEmailInvalideEstRefuse() {
+        AppUser u = utilisateur();
+        u.setEmail("pas-un-email");
+        assertTrue(champsEnErreur(u).contains("email"));
+    }
+
+    @Test
+    void unTicketValideNAAucuneErreur() {
+        Ticket t = new Ticket("Titre", "Description", utilisateur(), new Category("Hardware"));
+        assertTrue(champsEnErreur(t).isEmpty());
+    }
+
+    @Test
+    void unTicketSansTitreEstRefuse() {
+        Ticket t = new Ticket("  ", "Description", utilisateur(), new Category("Hardware"));
         assertTrue(champsEnErreur(t).contains("title"));
+    }
+
+    @Test
+    void unTicketSansDescriptionEstRefuse() {
         Ticket t = new Ticket("Titre", "", utilisateur(), new Category("Hardware"));
         assertTrue(champsEnErreur(t).contains("description"));
     }
+
     @Test
     void uneCategorieSansNomEstRefusee() {
         assertTrue(champsEnErreur(new Category(" ")).contains("name"));
@@ -52,28 +80,3 @@ class ModelValidationTest {
         assertNotNull(t.getCreatedAt());
     }
 }
-    @Test
-    void unTicketSansDescriptionEstRefuse() {
-    }
-
-    void unTicketSansTitreEstRefuse() {
-        Ticket t = new Ticket("  ", "Description", utilisateur(), new Category("Hardware"));
-    @Test
-    }
-
-    @Test
-    void unTicketValideNAAucuneErreur() {
-        Ticket t = new Ticket("Titre", "Description", utilisateur(), new Category("Hardware"));
-        assertTrue(champsEnErreur(t).isEmpty());
-    @Test
-    void unNomDUtilisateurVideEstRefuse() {
-
-        AppUser u = utilisateur();
-        u.setUsername("   ");
-        assertTrue(champsEnErreur(u).contains("username"));
-    }
-    }
-
-    @Test
-    void unEmailInvalideEstRefuse() {
-        AppUser u = utilisateur();

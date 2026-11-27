@@ -72,12 +72,9 @@ class TicketServiceTest {
 
         assertEquals("Écran noir", cree.getTitle());
         assertEquals("Ne s'allume plus", cree.getDescription());
-}        assertSame(auteur, cree.getUser());
+        assertSame(auteur, cree.getUser());
         assertSame(categorie, cree.getCategory());
         assertEquals(TicketStatus.NEW, cree.getStatus());
-
-        assertThrows(NoSuchElementException.class, () -> service.cancelOwnTicket(404L, "alice"));
-    }
     }
 
     @Test
@@ -86,15 +83,9 @@ class TicketServiceTest {
 
         assertThrows(NoSuchElementException.class,
                 () -> service.create("fantome", "Titre", "Description", 1L));
-    void annulerUnTicketInconnuEchoue() {
-        when(tickets.findById(404L)).thenReturn(Optional.empty());
         verify(tickets, never()).save(any());
     }
 
-        assertEquals(TicketStatus.NEW, t.getStatus());
-    }
-
-    @Test
     @Test
     void creerUnTicketAvecUneCategorieInconnueEchoue() {
         when(users.findByUsername("alice")).thenReturn(Optional.of(alice()));
@@ -102,12 +93,50 @@ class TicketServiceTest {
 
         assertThrows(NoSuchElementException.class,
                 () -> service.create("alice", "Titre", "Description", 99L));
-        when(tickets.findById(7L)).thenReturn(Optional.of(t));
-
-        assertThrows(AccessDeniedException.class, () -> service.cancelOwnTicket(7L, "bob"));
         verify(tickets, never()).save(any());
     }
 
+    // ---------- updateStatus ----------
+
+    @ParameterizedTest
+    @EnumSource(TicketStatus.class)
+    void leStatutPeutPasserParTousLesEtats(TicketStatus nouveau) {
+        Ticket t = ticketDe(alice());
+        when(tickets.findById(7L)).thenReturn(Optional.of(t));
+
+        service.updateStatus(7L, nouveau);
+
+        assertEquals(nouveau, t.getStatus());
+    }
+
+    @Test
+    void changerLeStatutDUnTicketInconnuEchoue() {
+        when(tickets.findById(404L)).thenReturn(Optional.empty());
+
+        assertThrows(NoSuchElementException.class,
+                () -> service.updateStatus(404L, TicketStatus.RESOLVED));
+    }
+
+    // ---------- cancelOwnTicket ----------
+
+    @Test
+    void unUtilisateurPeutAnnulerSonTicketNeuf() {
+        Ticket t = ticketDe(alice());
+        when(tickets.findById(7L)).thenReturn(Optional.of(t));
+
+        service.cancelOwnTicket(7L, "alice");
+
+        assertEquals(TicketStatus.CANCELLED, t.getStatus());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = TicketStatus.class, names = {"IN_PROGRESS", "RESOLVED", "CANCELLED"})
+    void unTicketDejaTraiteNEstPasAnnule(TicketStatus statut) {
+        Ticket t = ticketDe(alice());
+        t.setStatus(statut);
+        when(tickets.findById(7L)).thenReturn(Optional.of(t));
+
+        service.cancelOwnTicket(7L, "alice");
 
         assertEquals(statut, t.getStatus());
     }
@@ -115,44 +144,16 @@ class TicketServiceTest {
     @Test
     void onNePeutPasAnnulerLeTicketDUnAutreUtilisateur() {
         Ticket t = ticketDe(alice());
-    // ---------- updateStatus ----------
-        t.setStatus(statut);
         when(tickets.findById(7L)).thenReturn(Optional.of(t));
 
-        service.cancelOwnTicket(7L, "alice");
-
-    @ParameterizedTest
-        Ticket t = ticketDe(alice());
-    @EnumSource(TicketStatus.class)
-    void leStatutPeutPasserParTousLesEtats(TicketStatus nouveau) {
-        Ticket t = ticketDe(alice());
-        when(tickets.findById(7L)).thenReturn(Optional.of(t));
-    @EnumSource(value = TicketStatus.class, names = {"IN_PROGRESS", "RESOLVED", "CANCELLED"})
-    void unTicketDejaTraiteNEstPasAnnule(TicketStatus statut) {
-
-        service.updateStatus(7L, nouveau);
-        assertEquals(TicketStatus.CANCELLED, t.getStatus());
+        assertThrows(AccessDeniedException.class, () -> service.cancelOwnTicket(7L, "bob"));
+        assertEquals(TicketStatus.NEW, t.getStatus());
     }
-
-    @ParameterizedTest
-
-        assertEquals(nouveau, t.getStatus());
-    }
-
-        service.cancelOwnTicket(7L, "alice");
-
 
     @Test
-    void changerLeStatutDUnTicketInconnuEchoue() {
+    void annulerUnTicketInconnuEchoue() {
         when(tickets.findById(404L)).thenReturn(Optional.empty());
 
-        Ticket t = ticketDe(alice());
-        when(tickets.findById(7L)).thenReturn(Optional.of(t));
-        assertThrows(NoSuchElementException.class,
-                () -> service.updateStatus(404L, TicketStatus.RESOLVED));
-    void unUtilisateurPeutAnnulerSonTicketNeuf() {
+        assertThrows(NoSuchElementException.class, () -> service.cancelOwnTicket(404L, "alice"));
     }
-
-    // ---------- cancelOwnTicket ----------
-    @Test
-
+}
