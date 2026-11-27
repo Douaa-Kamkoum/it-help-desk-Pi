@@ -1,0 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: [feature/cicd]
+
+jobs:
+  smoke-test:
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Vérifier les outils
+        run: |
+          java -version
+          mvn -version
+          docker --version
+          docker ps
+
+      - name: Vérifier le projet
+        run: ls application/it-help-desk-java
