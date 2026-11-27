@@ -81,3 +81,108 @@ jobs:
           name: rapport-securite-gitleaks
           path: gitleaks-report.json
           if-no-files-found: ignore
+
+
+  # ==================================================================
+  # JOB 2 — APPLICATION VALIDATION & QUALITY ANALYSIS
+  # ==================================================================
+  application-validation:
+    name: "Application | Build, Tests & Quality Analysis"
+    runs-on: self-hosted
+    timeout-minutes: 30
+    needs: secrets-scan
+
+    defaults:
+      run:
+        working-directory: application/it-help-desk-java
+
+    env:
+      DB_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+    # --------------------------------------------------------------
+    # Temporary MySQL database for integration tests
+    # --------------------------------------------------------------
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root-${{ github.run_id }}-${{ github.run_attempt }}
+          MYSQL_DATABASE: helpdesk_db
+          MYSQL_USER: helpdesk_user
+          MYSQL_PASSWORD: ci-${{ github.run_id }}-${{ github.run_attempt }}
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+
+    steps:
+      # ------------------------------------------------------------
+      # 1. Source code checkout
+      # ------------------------------------------------------------
+      - name: "1. Checkout | Retrieve source code"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # ------------------------------------------------------------
+      # 2. Build, tests and coverage
+      # ------------------------------------------------------------
+      - name: "2. Maven | Build, Unit Tests & Code Coverage"
+        run: >
+          mvn -B clean
+          org.jacoco:jacoco-maven-plugin:0.8.12:prepare-agent
+          verify
+          org.jacoco:jacoco-maven-plugin:0.8.12:report
+
+      # ------------------------------------------------------------
+      # 3. SonarCloud configuration validation
+      # ------------------------------------------------------------
+      - name: "3. SonarCloud | Validate Configuration"
+        env:
+          SONAR_ORG: ${{ vars.SONAR_ORGANIZATION }}
+          SONAR_KEY: ${{ vars.SONAR_PROJECT_KEY }}
+        run: |
+          missing=0
+          [ -z "$SONAR_TOKEN" ] && { echo "::error::Secret SONAR_TOKEN manquant"; missing=1; }
+          [ -z "$SONAR_ORG" ] && { echo "::error::Variable SONAR_ORGANIZATION manquante"; missing=1; }
+          [ -z "$SONAR_KEY" ] && { echo "::error::Variable SONAR_PROJECT_KEY manquante"; missing=1; }
+          exit $missing
+
+      # ------------------------------------------------------------
+      # 4. SonarCloud analysis and Quality Gate
+      # ------------------------------------------------------------
+      - name: "4. SonarCloud | Code Quality & Quality Gate"
+        run: >
+          mvn -B org.sonarsource.scanner.maven:sonar-maven-plugin:5.0.0.4389:sonar
+          -Dsonar.host.url=https://sonarcloud.io
+          -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }}
+          -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+          -Dsonar.coverage.jacoco.xmlReportPaths=target/site/jacoco/jacoco.xml
+          -Dsonar.qualitygate.wait=true
+
+      # ------------------------------------------------------------
+      # 5. Test and coverage reports
+      # ------------------------------------------------------------
+      - name: "5. Artifacts | Publish Test & Coverage Reports"
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-and-coverage-reports
+          path: |
+            application/it-help-desk-java/target/surefire-reports/
+            application/it-help-desk-java/target/site/jacoco/
+          if-no-files-found: ignore
+
+      # ------------------------------------------------------------
+      # 6. Application package
+      # ------------------------------------------------------------
+      - name: "6. Artifacts | Publish Application JAR"
+        uses: actions/upload-artifact@v4
+        with:
+          name: it-helpdesk-application
+          path: application/it-help-desk-java/target/ithelpdesk-1.0.0.jar
+          if-no-files-found: error
