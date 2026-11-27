@@ -1,52 +1,82 @@
-name: CI
-
+name: CI - Helpdesk Application
 on:
   push:
     branches: [feature/cicd, develop, main]
   pull_request:
     branches: [develop, main]
-
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
-
 permissions:
   contents: read
-
 env:
   APP_DIR: application/it-help-desk-java
   GITLEAKS_VERSION: 8.21.2
 
 jobs:
   # ------------------------------------------------------------------
-  # 1. Détection de secrets (tout l'historique Git)
+  # 1. Détection des secrets avec Gitleaks
   # ------------------------------------------------------------------
   secrets-scan:
-    name: Secrets (Gitleaks)
+    name: "🔐 Security - Secret Detection (Gitleaks)"
     runs-on: self-hosted
     timeout-minutes: 10
+
     steps:
-      - uses: actions/checkout@v4
+      - name: "📥 Checkout - Récupération du dépôt"
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Installer Gitleaks (une seule fois, mis en cache sur le runner)
+      - name: "📦 Installation de Gitleaks"
         run: |
           TOOLS="$HOME/.cache/ci-tools/gitleaks-${GITLEAKS_VERSION}"
+
           if [ ! -x "$TOOLS/gitleaks" ]; then
+            echo "Installation de Gitleaks ${GITLEAKS_VERSION}..."
             mkdir -p "$TOOLS"
-            curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
+
+            curl -sSfL \
+              "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" \
               | tar -xz -C "$TOOLS" gitleaks
+          else
+            echo "Gitleaks est déjà installé."
           fi
+
           echo "$TOOLS" >> "$GITHUB_PATH"
 
-      - name: Scanner le dépôt
-        run: gitleaks detect --source . --redact --verbose --report-format json --report-path gitleaks-report.json --exit-code 1
+      - name: "🛡️ Analyse de sécurité du dépôt"
+        run: |
+          echo "Début de l'analyse des secrets..."
 
-      - name: Publier le rapport
+          gitleaks detect \
+            --source . \
+            --redact \
+            --verbose \
+            --report-format json \
+            --report-path gitleaks-report.json \
+            --exit-code 1
+
+      - name: "📊 Résultat de l'analyse"
+        if: always()
+        run: |
+          if [ -f gitleaks-report.json ]; then
+            COUNT=$(jq 'length' gitleaks-report.json)
+            echo "Nombre de secrets détectés : $COUNT"
+
+            if [ "$COUNT" -eq 0 ]; then
+              echo "✅ Aucun secret détecté."
+            else
+              echo "⚠️ Des secrets potentiels ont été détectés."
+            fi
+          else
+            echo "⚠️ Aucun rapport JSON disponible."
+          fi
+
+      - name: "📤 Publication du rapport de sécurité"
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rapport-gitleaks
+          name: rapport-securite-gitleaks
           path: gitleaks-report.json
           if-no-files-found: ignore
