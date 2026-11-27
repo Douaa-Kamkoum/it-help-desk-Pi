@@ -38,3 +38,27 @@
   roles:
     - { role: app, tags: app }
 - ansible.builtin.import_playbook: test_helpdesk.yml
+
+- name: Créer la base de données Zabbix
+  hosts: db
+  become: true
+  roles:
+    - { role: zabbix_db, tags: zabbix-db }
+
+- name: Installer le serveur Zabbix
+  hosts: monitor
+  become: true
+  roles:
+    - { role: monitor, tags: monitoring }
+
+- name: Installer l'agent Zabbix sur toutes les machines
+  hosts: servers
+  become: true
+  roles:
+    - { role: zabbix-agent, tags: zabbix-agent }
+
+- name: Déployer les métriques Helpdesk
+  hosts: web
+  become: true
+  roles:
+    - { role: zabbix_metrics, tags: zabbix-metrics }

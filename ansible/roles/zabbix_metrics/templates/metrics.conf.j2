@@ -1,0 +1,23 @@
+# Tickets
+UserParameter=helpdesk.pending,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py pending
+UserParameter=helpdesk.in_progress,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py in_progress
+UserParameter=helpdesk.resolved,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py resolved
+UserParameter=helpdesk.backlog,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py backlog
+UserParameter=helpdesk.old_24h,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py old_24h
+UserParameter=helpdesk.oldest_age,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py oldest_age
+
+# Utilisateurs
+UserParameter=helpdesk.users.total,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py users_total
+UserParameter=helpdesk.users.high_backlog,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py users_high_backlog
+UserParameter=helpdesk.users.repeated_incidents,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py users_repeated_incidents
+UserParameter=helpdesk.users.high_backlog.details,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py users_high_backlog_details
+UserParameter=helpdesk.users.repeated_incidents.details,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py users_repeated_incidents_details
+
+# Categories
+UserParameter=helpdesk.categories.open_tickets,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py categories_open_tickets
+UserParameter=helpdesk.categories.max_backlog,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py categories_max_backlog
+UserParameter=helpdesk.categories.high_backlog,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py categories_high_backlog
+UserParameter=helpdesk.categories.old_tickets,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py categories_old_tickets
+
+# Performance globale
+UserParameter=helpdesk.resolution_rate,/opt/helpdesk-metrics-venv/bin/python /usr/local/bin/helpdesk_metrics.py resolution_rate

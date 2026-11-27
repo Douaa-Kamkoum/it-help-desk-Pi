@@ -1,0 +1,178 @@
+
+- name: Download Zabbix repository package
+  ansible.builtin.get_url:
+    url: "https://repo.zabbix.com/zabbix/{{ zabbix_version }}/ubuntu/pool/main/z/zabbix-release/zabbix-release_latest_{{ zabbix_version }}+{{ zabbix_ubuntu_release }}_all.deb"
+    dest: /tmp/zabbix-release.deb
+    mode: '0644'
+
+- name: Install Zabbix repository
+  ansible.builtin.apt:
+    deb: /tmp/zabbix-release.deb
+
+- name: Install Zabbix and dependencies
+  ansible.builtin.apt:
+    name:
+      - zabbix-server-mysql
+      - zabbix-frontend-php
+      - zabbix-nginx-conf
+      - zabbix-sql-scripts
+      - nginx
+      - "php{{ zabbix_php_version }}-fpm"
+      - "php{{ zabbix_php_version }}-mysql"
+      - mysql-client 
+    state: present
+    update_cache: true
+
+- name: Wait for MySQL server
+  ansible.builtin.wait_for:
+    host: "{{ db_server_ip }}"
+    port: "{{ zabbix_db_port }}"
+    state: started
+    timeout: 60
+
+- name: Configure Zabbix database
+  ansible.builtin.lineinfile:
+    path: /etc/zabbix/zabbix_server.conf
+    regexp: "^#?\\s*{{ item.key }}="
+    line: "{{ item.key }}={{ item.value }}"
+  loop:
+    - { key: "DBHost", value: "{{ db_server_ip }}" }
+    - { key: "DBName", value: "{{ zabbix_db_name }}" }
+    - { key: "DBUser", value: "{{ zabbix_db_user }}" }
+    - { key: "DBPassword", value: "{{ vault_zabbix_db_password }}" }
+  no_log: true
+  notify: Restart Zabbix services
+
+- name: Configure Zabbix frontend
+  ansible.builtin.lineinfile:
+    path: /etc/zabbix/nginx.conf
+    regexp: "^\\s*#?\\s*{{ item.key }}\\s+"
+    line: "{{ item.key }} {{ item.value }};"
+  loop:
+    - { key: "listen", value: "{{ zabbix_frontend_port }}" }
+    - { key: "server_name", value: "{{ zabbix_frontend_server_name }}" }
+  notify: Restart Zabbix services
+
+- name: Configure Zabbix frontend DB connection
+  ansible.builtin.copy:
+    dest: /etc/zabbix/web/zabbix.conf.php
+    owner: www-data
+    group: www-data
+    mode: "0640"
+    content: |
+      <?php
+      $DB['TYPE'] = 'MYSQL';
+      $DB['SERVER'] = '{{ db_server_ip }}';
+      $DB['PORT'] = '{{ zabbix_db_port }}';
+      $DB['DATABASE'] = '{{ zabbix_db_name }}';
+      $DB['USER'] = '{{ zabbix_db_user }}';
+      $DB['PASSWORD'] = '{{ vault_zabbix_db_password }}';
+      $DB['SCHEMA'] = '';
+      $DB['ENCRYPTION'] = false;
+      $ZBX_SERVER = 'localhost';
+      $ZBX_SERVER_PORT = '{{ zabbix_server_port }}';
+      $ZBX_SERVER_NAME = '{{ zabbix_server_name }}';
+      $IMAGE_FORMAT_DEFAULT = IMAGE_FORMAT_PNG;
+  no_log: true
+  notify: Restart Zabbix services
+
+- name: Configure PHP timezone
+  ansible.builtin.lineinfile:
+    path: "/etc/php/{{ zabbix_php_version }}/fpm/php.ini"
+    regexp: '^;?date.timezone\s*='
+    line: "date.timezone = {{ zabbix_php_timezone }}"
+  notify: Restart Zabbix services
+
+- name: Create Zabbix data directory
+  ansible.builtin.file:
+    path: "{{ zabbix_data_dir }}"
+    state: directory
+    owner: zabbix
+    group: zabbix
+    mode: "0750"
+
+- name: Import Zabbix database schema
+  ansible.builtin.shell: |
+    set -o pipefail
+    zcat /usr/share/zabbix-sql-scripts/mysql/server.sql.gz |
+    mysql --default-character-set=utf8mb4 \
+      --host={{ db_server_ip }} \
+      --user={{ zabbix_db_user }} {{ zabbix_db_name }} &&
+    touch {{ zabbix_data_dir }}/.schema_imported
+  args:
+    executable: /bin/bash
+    creates: "{{ zabbix_data_dir }}/.schema_imported"
+  environment:
+    MYSQL_PWD: "{{ vault_zabbix_db_password }}"
+  no_log: true
+
+- name: Enable and start Zabbix services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - zabbix-server
+    - php{{ zabbix_php_version }}-fpm
+    - nginx
+
+- name: Wait for Zabbix frontend
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      id: 1
+      method: apiinfo.version
+      params: {}
+    status_code: 200
+  register: api_check
+  until: api_check.json.result is defined
+  retries: 20
+  delay: 5
+
+- name: Log in to Zabbix API
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    body:
+      jsonrpc: "2.0"
+      id: 2
+      method: user.login
+      params:
+        username: "{{ zabbix_api_user }}"
+        password: "{{ vault_zabbix_admin_password }}"
+    status_code: 200
+  register: login
+  no_log: true
+
+- name: Add VMs as Zabbix hosts
+  ansible.builtin.uri:
+    url: "http://127.0.0.1:{{ zabbix_frontend_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    headers:
+      Authorization: "Bearer {{ login.json.result }}"
+    body:
+      jsonrpc: "2.0"
+      id: 3
+      method: host.create
+      params:
+        host: "{{ item.name }}"
+        interfaces:
+          - type: 1
+            main: 1
+            useip: 1
+            ip: "{{ item.ip }}"
+            dns: ""
+            port: "{{ zabbix_agent_port }}"
+        groups:
+          - groupid: "{{ zabbix_host_group_id }}"
+    status_code: 200
+  loop: "{{ dns_records }}"
+  register: r
+  failed_when: >
+    r.json.error is defined and
+    'already exists' not in (r.json.error.data | default(''))

@@ -1,0 +1,9 @@
+---
+- name: Restart Zabbix services
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - zabbix-server
+    - nginx
+    - "php{{ zabbix_php_version }}-fpm"
