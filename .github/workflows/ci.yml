@@ -57,11 +57,13 @@ jobs:
             --report-path gitleaks-report.json \
             --exit-code 1
 
+
       - name: "📊 Résultat de l'analyse"
         if: always()
         run: |
           if [ -f gitleaks-report.json ]; then
-            COUNT=$(jq 'length' gitleaks-report.json)
+            COUNT=$(python3 -c "import json; print(len(json.load(open('gitleaks-report.json'))))")
+
             echo "Nombre de secrets détectés : $COUNT"
 
             if [ "$COUNT" -eq 0 ]; then
@@ -72,7 +74,6 @@ jobs:
           else
             echo "⚠️ Aucun rapport JSON disponible."
           fi
-
       - name: "📤 Publication du rapport de sécurité"
         if: always()
         uses: actions/upload-artifact@v4
