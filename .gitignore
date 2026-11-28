@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Fichiers temporaires Vagrant
 **/.vagrant/
->>>>>>> feature/ansible
+.vagrant_backup_20261127/
