@@ -1,0 +1,42 @@
+---
+- name: Configure DNS server
+  hosts: dns
+  become: true
+  roles:
+    - { role: dns, tags: dns }
+
+- name: Configure DNS clients
+  hosts: dns_clients
+  become: true
+  roles:
+    - { role: dns-client, tags: dns-client }
+
+- name: Configure Nginx
+  hosts: web
+  become: true
+  roles:
+    - { role: nginx, tags: nginx }
+
+- name: Configure MySQL
+  hosts: db
+  become: true
+  roles:
+    - { role: mysql, tags: mysql }
+
+- name: Create Zabbix database
+  hosts: db
+  become: true
+  roles:
+    - { role: zabbix_db, tags: zabbix-db }
+
+- name: Install Zabbix server
+  hosts: monitor
+  become: true
+  roles:
+    - { role: monitor, tags: monitoring }
+
+- name: Install Zabbix agents
+  hosts: servers
+  become: true
+  roles:
+    - { role: zabbix-agent, tags: zabbix-agent }

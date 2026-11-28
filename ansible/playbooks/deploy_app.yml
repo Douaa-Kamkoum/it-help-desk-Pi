@@ -1,0 +1,12 @@
+---
+- name: Deploy Java application
+  hosts: web
+  become: true
+  roles:
+    - { role: app, tags: app }
+
+- name: Deploy Helpdesk metrics
+  hosts: web
+  become: true
+  roles:
+    - { role: zabbix_metrics, tags: zabbix-metrics }
